@@ -10,6 +10,7 @@ from openai import OpenAI
 
 
 DEFAULT_ENV_KEY = "OPENAI_API_KEY"
+DEFAULT_BASE_URL = "https://api.openai.com/v1"
 DEFAULT_MODEL = "gpt-image-2"
 DEFAULT_SIZE = "1536x1024"
 
@@ -23,6 +24,10 @@ PPT slide image requirements:
 - Avoid garbled characters, watermarks, random logos, and irrelevant UI.
 - Use reference images only for visual style or layout unless the prompt explicitly asks to copy content.
 """
+
+
+def default_base_url() -> str:
+    return os.getenv("OPENAI_BASE_URL") or DEFAULT_BASE_URL
 
 
 def read_text(path: Path) -> str:
@@ -133,7 +138,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--prompt-text", help="Prompt text provided directly on the command line.")
     parser.add_argument("--stdin", action="store_true", help="Read prompt text from stdin.")
     parser.add_argument("--reference-image", action="append", default=[], help="Reference image path. Repeatable.")
-    parser.add_argument("--base-url", default=os.getenv("OPENAI_BASE_URL"), help="OpenAI-compatible base URL.")
+    parser.add_argument(
+        "--base-url",
+        default=default_base_url(),
+        help=f"OpenAI-compatible base URL. Default: {DEFAULT_BASE_URL}",
+    )
     parser.add_argument("--env-key", default=DEFAULT_ENV_KEY, help=f"API key environment variable. Default: {DEFAULT_ENV_KEY}")
     parser.add_argument("--model", default=os.getenv("OPENAI_IMAGE_MODEL", DEFAULT_MODEL), help=f"Image model. Default: {DEFAULT_MODEL}")
     parser.add_argument("--size", default=os.getenv("PPT_IMAGE_SIZE", DEFAULT_SIZE), help=f"Image size. Default: {DEFAULT_SIZE}")
