@@ -1,0 +1,562 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>__REPORT_TITLE__</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #05070b;
+      --panel: rgba(10, 15, 25, 0.82);
+      --text: #e7edf7;
+      --muted: #97a4b8;
+      --accent: #2dd4bf;
+      --border: rgba(148, 163, 184, 0.24);
+    }
+
+    * { box-sizing: border-box; }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: var(--bg);
+      font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", system-ui, sans-serif;
+    }
+
+    body {
+      display: grid;
+      grid-template-rows: 1fr auto;
+    }
+
+    button {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: rgba(15, 23, 42, 0.88);
+      color: var(--text);
+      font: inherit;
+      font-size: 13px;
+      line-height: 1;
+      padding: 8px 10px;
+      cursor: pointer;
+    }
+
+    button:hover { border-color: rgba(45, 212, 191, 0.72); }
+    button:disabled { cursor: not-allowed; opacity: 0.42; }
+
+    .stage {
+      position: relative;
+      min-height: 0;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+      overflow: hidden;
+    }
+
+    .slide {
+      display: block;
+      max-width: 100%;
+      max-height: 100%;
+      width: auto;
+      height: auto;
+      object-fit: contain;
+      border-radius: 4px;
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+      background: #fff;
+    }
+
+    .slide.entering { animation: slideIn 260ms ease-out; }
+    .stage.audio-playing .slide { animation: audioFocus 18s ease-in-out infinite alternate; }
+
+    .empty {
+      color: var(--muted);
+      font-size: 16px;
+      text-align: center;
+      padding: 24px;
+      border: 1px dashed var(--border);
+      border-radius: 8px;
+    }
+
+    .hint {
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      color: rgba(231, 237, 247, 0.62);
+      font-size: 12px;
+      z-index: 2;
+    }
+
+    .controls {
+      position: fixed;
+      left: 18px;
+      bottom: 18px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--panel);
+      color: var(--text);
+      backdrop-filter: blur(14px);
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35);
+      z-index: 3;
+    }
+
+    .controls.collapsed {
+      gap: 0;
+      padding: 6px;
+      border-radius: 999px;
+    }
+
+    .control-main {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .controls.collapsed .control-main { display: none; }
+
+    .filename {
+      max-width: 260px;
+      overflow: hidden;
+      color: var(--muted);
+      font-size: 12px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .counter {
+      min-width: 54px;
+      color: var(--text);
+      font-size: 13px;
+      text-align: center;
+    }
+
+    .audio-progress {
+      display: none;
+      width: 120px;
+      height: 4px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: rgba(148, 163, 184, 0.24);
+    }
+
+    .audio-progress-bar {
+      width: 0;
+      height: 100%;
+      background: var(--accent);
+    }
+
+    .thumb-panel {
+      position: fixed;
+      inset: 0;
+      display: none;
+      grid-template-rows: auto 1fr;
+      padding: 18px;
+      background: rgba(5, 7, 11, 0.96);
+      z-index: 5;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .thumb-panel.open { display: grid; }
+
+    .thumb-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 14px;
+      color: var(--text);
+    }
+
+    .thumb-title {
+      min-width: 0;
+      overflow: hidden;
+      font-size: 16px;
+      font-weight: 600;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .thumb-grid {
+      min-height: 0;
+      height: 100%;
+      display: flex;
+      flex-wrap: wrap;
+      align-content: flex-start;
+      gap: 12px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding-right: 4px;
+    }
+
+    .thumb {
+      width: 220px;
+      height: 160px;
+      min-width: 0;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 8px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: rgba(15, 23, 42, 0.68);
+      cursor: pointer;
+    }
+
+    .thumb:hover,
+    .thumb.active { border-color: rgba(45, 212, 191, 0.8); }
+
+    .thumb-image {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .thumb-image img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    .thumb span {
+      flex: 0 0 18px;
+      overflow: hidden;
+      color: var(--muted);
+      font-size: 12px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0.2; transform: translateY(8px) scale(0.996); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    @keyframes audioFocus {
+      from { transform: scale(1); }
+      to { transform: scale(1.01); }
+    }
+
+    @media (max-width: 760px) {
+      .stage { padding: 10px; }
+      .controls {
+        left: 10px;
+        right: 10px;
+        bottom: 10px;
+        gap: 8px;
+      }
+      .control-main {
+        flex: 1;
+        min-width: 0;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .filename { max-width: 100%; flex-basis: 100%; }
+      .hint { display: none; }
+      .thumb-panel { padding: 10px; }
+      .thumb-grid {
+        gap: 10px;
+      }
+      .thumb {
+        width: calc((100vw - 30px) / 2);
+        height: 132px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="stage" id="stage">
+    <img id="slide" class="slide" alt="">
+    <div id="empty" class="empty" hidden>No slides configured.</div>
+  </main>
+
+  <div class="hint">F fullscreen / O overview / ← → switch</div>
+  <audio id="slideAudio" preload="metadata"></audio>
+
+  <nav class="controls" aria-label="slide controls">
+    <button id="toggleControls" type="button" title="Collapse controls" aria-label="Collapse controls">‹</button>
+    <div class="control-main">
+      <button id="prev" type="button">Prev</button>
+      <div id="counter" class="counter">0 / 0</div>
+      <button id="next" type="button">Next</button>
+      <button id="audioToggle" type="button">Play</button>
+      <div id="audioProgress" class="audio-progress" aria-hidden="true">
+        <div id="audioProgressBar" class="audio-progress-bar"></div>
+      </div>
+      <button id="modeToggle" type="button">Mode: Manual</button>
+      <button id="overview" type="button">Overview</button>
+      <button id="fullscreen" type="button">Fullscreen</button>
+      <div id="filename" class="filename"></div>
+    </div>
+  </nav>
+
+  <section id="thumbPanel" class="thumb-panel" aria-label="all slides">
+    <div class="thumb-header">
+      <div class="thumb-title">__REPORT_TITLE__</div>
+      <button id="thumbClose" type="button">Close</button>
+    </div>
+    <div id="thumbGrid" class="thumb-grid"></div>
+  </section>
+
+  <script>
+    const reportTitle = "__REPORT_TITLE__";
+    const slides = __SLIDES_JSON__;
+    const audios = __AUDIOS_JSON__;
+
+    let index = 0;
+    let autoMode = false;
+
+    const stageEl = document.getElementById("stage");
+    const slideEl = document.getElementById("slide");
+    const emptyEl = document.getElementById("empty");
+    const filenameEl = document.getElementById("filename");
+    const counterEl = document.getElementById("counter");
+    const audioToggleBtn = document.getElementById("audioToggle");
+    const audioProgress = document.getElementById("audioProgress");
+    const audioProgressBar = document.getElementById("audioProgressBar");
+    const slideAudio = document.getElementById("slideAudio");
+    const modeToggleBtn = document.getElementById("modeToggle");
+    const prevBtn = document.getElementById("prev");
+    const nextBtn = document.getElementById("next");
+    const overviewBtn = document.getElementById("overview");
+    const fullscreenBtn = document.getElementById("fullscreen");
+    const controlsEl = document.querySelector(".controls");
+    const toggleControlsBtn = document.getElementById("toggleControls");
+    const thumbPanel = document.getElementById("thumbPanel");
+    const thumbGrid = document.getElementById("thumbGrid");
+    const thumbCloseBtn = document.getElementById("thumbClose");
+
+    document.title = reportTitle;
+
+    function hasAudioForCurrentSlide() {
+      return Boolean(audios[index]);
+    }
+
+    function render() {
+      if (!slides.length) {
+        slideEl.hidden = true;
+        emptyEl.hidden = false;
+        filenameEl.textContent = "";
+        counterEl.textContent = "0 / 0";
+        prevBtn.disabled = true;
+        nextBtn.disabled = true;
+        syncModeControls();
+        return;
+      }
+
+      const file = slides[index];
+      slideEl.hidden = false;
+      emptyEl.hidden = true;
+      slideEl.src = encodeURI(file);
+      slideEl.alt = file;
+      slideEl.classList.remove("entering");
+      requestAnimationFrame(() => slideEl.classList.add("entering"));
+      filenameEl.textContent = file;
+      counterEl.textContent = `${index + 1} / ${slides.length}`;
+      prevBtn.disabled = index === 0;
+      nextBtn.disabled = index === slides.length - 1;
+      syncModeControls();
+      loadAudio(audios[index]);
+      if (autoMode && hasAudioForCurrentSlide()) {
+        playCurrentAudio();
+      } else {
+        resetAudio(false);
+      }
+    }
+
+    function loadAudio(audioFile) {
+      if (!audioFile) {
+        slideAudio.removeAttribute("src");
+        audioProgressBar.style.width = "0%";
+        return;
+      }
+      const encoded = encodeURI(audioFile);
+      const current = slideAudio.getAttribute("src") || "";
+      if (current !== encoded) {
+        slideAudio.pause();
+        slideAudio.setAttribute("src", encoded);
+        slideAudio.load();
+      }
+      audioProgressBar.style.width = "0%";
+    }
+
+    function setAudioPlayingState(isPlaying) {
+      stageEl.classList.toggle("audio-playing", isPlaying);
+      audioToggleBtn.textContent = isPlaying ? "Pause" : "Play";
+    }
+
+    function resetAudio(resetTime = true) {
+      slideAudio.pause();
+      if (resetTime && Number.isFinite(slideAudio.duration)) slideAudio.currentTime = 0;
+      audioProgressBar.style.width = "0%";
+      setAudioPlayingState(false);
+    }
+
+    async function playCurrentAudio() {
+      if (!hasAudioForCurrentSlide()) return;
+      try {
+        slideAudio.currentTime = 0;
+        await slideAudio.play();
+        updateAudioProgress();
+        setAudioPlayingState(true);
+      } catch (error) {
+        setMode(false);
+      }
+    }
+
+    function setMode(nextAutoMode) {
+      autoMode = nextAutoMode && audios.some(Boolean);
+      syncModeControls();
+      if (autoMode) {
+        playCurrentAudio();
+      } else {
+        resetAudio();
+      }
+    }
+
+    function syncModeControls() {
+      const hasAnyAudio = audios.some(Boolean);
+      modeToggleBtn.style.display = hasAnyAudio ? "inline-block" : "none";
+      audioToggleBtn.style.display = autoMode && hasAudioForCurrentSlide() ? "inline-block" : "none";
+      audioProgress.style.display = autoMode && hasAudioForCurrentSlide() ? "block" : "none";
+      modeToggleBtn.textContent = autoMode ? "Mode: Auto" : "Mode: Manual";
+    }
+
+    function updateAudioProgress() {
+      if (!Number.isFinite(slideAudio.duration) || slideAudio.duration <= 0) {
+        audioProgressBar.style.width = "0%";
+      } else {
+        audioProgressBar.style.width = `${(slideAudio.currentTime / slideAudio.duration) * 100}%`;
+      }
+    }
+
+    function prev() {
+      if (index > 0) {
+        index -= 1;
+        render();
+      }
+    }
+
+    function next() {
+      if (index < slides.length - 1) {
+        index += 1;
+        render();
+      }
+    }
+
+    function renderThumbs() {
+      thumbGrid.innerHTML = "";
+      slides.forEach((file, slideIndex) => {
+        const item = document.createElement("div");
+        item.role = "button";
+        item.tabIndex = 0;
+        item.className = `thumb${slideIndex === index ? " active" : ""}`;
+        item.innerHTML = `<div class="thumb-image"><img src="${encodeURI(file)}" alt="${file}"></div><span>${slideIndex + 1}. ${file}</span>`;
+        const activate = () => {
+          index = slideIndex;
+          render();
+          closeOverview();
+        };
+        item.addEventListener("click", activate);
+        item.addEventListener("keydown", (event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            activate();
+          }
+        });
+        thumbGrid.appendChild(item);
+      });
+    }
+
+    function openOverview() {
+      thumbPanel.classList.add("open");
+      renderThumbs();
+    }
+
+    function closeOverview() {
+      thumbPanel.classList.remove("open");
+    }
+
+    function toggleControls() {
+      const collapsed = controlsEl.classList.toggle("collapsed");
+      toggleControlsBtn.textContent = collapsed ? "›" : "‹";
+      toggleControlsBtn.title = collapsed ? "Expand controls" : "Collapse controls";
+      toggleControlsBtn.setAttribute("aria-label", collapsed ? "Expand controls" : "Collapse controls");
+    }
+
+    async function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen();
+        fullscreenBtn.textContent = "Exit";
+      } else {
+        await document.exitFullscreen();
+        fullscreenBtn.textContent = "Fullscreen";
+      }
+    }
+
+    prevBtn.addEventListener("click", prev);
+    nextBtn.addEventListener("click", next);
+    overviewBtn.addEventListener("click", openOverview);
+    fullscreenBtn.addEventListener("click", toggleFullscreen);
+    toggleControlsBtn.addEventListener("click", toggleControls);
+    thumbCloseBtn.addEventListener("click", closeOverview);
+    modeToggleBtn.addEventListener("click", () => setMode(!autoMode));
+    audioToggleBtn.addEventListener("click", async () => {
+      if (!autoMode || !hasAudioForCurrentSlide()) return;
+      if (slideAudio.paused) {
+        await slideAudio.play();
+        updateAudioProgress();
+        setAudioPlayingState(true);
+      } else {
+        slideAudio.pause();
+        setAudioPlayingState(false);
+      }
+    });
+
+    slideAudio.addEventListener("timeupdate", updateAudioProgress);
+    slideAudio.addEventListener("pause", () => {
+      if (!slideAudio.ended) setAudioPlayingState(false);
+    });
+    slideAudio.addEventListener("play", () => setAudioPlayingState(true));
+    slideAudio.addEventListener("ended", () => {
+      setAudioPlayingState(false);
+      audioProgressBar.style.width = "100%";
+      if (autoMode && index < slides.length - 1) {
+        index += 1;
+        render();
+      }
+    });
+
+    document.addEventListener("fullscreenchange", () => {
+      fullscreenBtn.textContent = document.fullscreenElement ? "Exit" : "Fullscreen";
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (thumbPanel.classList.contains("open")) {
+        if (event.key === "Escape") closeOverview();
+        return;
+      }
+      if (event.key === "ArrowLeft") prev();
+      if (event.key === "ArrowRight" || event.key === " ") next();
+      if (event.key.toLowerCase() === "f") toggleFullscreen();
+      if (event.key.toLowerCase() === "o") openOverview();
+      if (event.key.toLowerCase() === "c") toggleControls();
+      if (event.key.toLowerCase() === "a") setMode(!autoMode);
+      if (event.key.toLowerCase() === "p" && autoMode) audioToggleBtn.click();
+    });
+
+    render();
+  </script>
+</body>
+</html>

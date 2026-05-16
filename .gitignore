@@ -1,0 +1,35 @@
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Local environment and secrets
+.env
+.env.*
+*.pem
+*.key
+*.pfx
+
+# Generated report artifacts
+*.mp3
+*.mp4
+*.wav
+*.m4a
+*.pdf
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.zip
+*.7z
+*.rar
+
+# Skill-maintained assets are allowed when intentionally added
+!skills/**/assets/**
+
+# Generated HTML decks in example or working folders
+index.html
+report.html
+
+# Local OS/editor noise
+.DS_Store
+Thumbs.db

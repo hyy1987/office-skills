@@ -1,0 +1,7 @@
+interface:
+  display_name: "Image HTML PPT Report"
+  short_description: "用图片和HTML制作可分享汇报材料"
+  default_prompt: "Use $image-html-ppt-report to turn a report outline and slide images into a reusable offline HTML presentation package."
+
+policy:
+  allow_implicit_invocation: true
